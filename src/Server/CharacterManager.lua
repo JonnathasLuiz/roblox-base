@@ -1,19 +1,21 @@
 local CharacterManager = {}
 CharacterManager.ActiveCharacters = {} -- [Player] = {CurrentChar, AllChars}
+CharacterManager.Queues = {} -- [Model] = {task1, task2, ...}
 
 local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Persistence = require(script.Parent.Persistence)
 
 -- Create a basic character model if not exists for prototyping
 local function getCharacterTemplate()
 	local template = ServerStorage:FindFirstChild("CharacterTemplate")
 	if not template then
-		-- Just as a placeholder, in a real game we would have a Rig
 		template = Instance.new("Model")
 		template.Name = "CharacterTemplate"
 		local hum = Instance.new("Humanoid", template)
 		local root = Instance.new("Part", template)
 		root.Name = "HumanoidRootPart"
-		root.Size = Vector3.new(2, 2, 1)
+		root.Size = Vector3.new(2, 5, 1)
 		template.PrimaryPart = root
 		template.Parent = ServerStorage
 	end
@@ -21,33 +23,43 @@ local function getCharacterTemplate()
 end
 
 function CharacterManager.initPlayer(player)
-	-- Load characters from Persistence (simulated for now)
-	local chars = {
-		{ id = player.UserId * 10 + 1, name = player.Name .. " (Main)", member_id = player.UserId },
-		{ id = player.UserId * 10 + 2, name = player.Name .. " (Alt)", member_id = player.UserId }
-	}
+	local playerChars = Persistence.getCharactersByMemberId(player.UserId)
+
+	if #playerChars == 0 then
+		local char1 = { id = "char_" .. player.UserId .. "_1", name = player.Name .. " (Main)", member_id = player.UserId }
+		local char2 = { id = "char_" .. player.UserId .. "_2", name = player.Name .. " (Alt)", member_id = player.UserId }
+
+		Persistence.saveCharacter(player.UserId, char1)
+		Persistence.saveCharacter(player.UserId, char2)
+
+		playerChars = {char1, char2}
+	end
 
 	CharacterManager.ActiveCharacters[player] = {
 		CurrentIndex = 1,
-		Characters = chars,
+		Characters = playerChars,
 		Instances = {}
 	}
 
-	-- Spawn characters as NPCs
-	for i, charData in ipairs(chars) do
+	for i, charData in ipairs(playerChars) do
 		local model = getCharacterTemplate():Clone()
 		model.Name = charData.name
 		model.Parent = workspace
 		model:MoveTo(Vector3.new(math.random(-10, 10), 5, math.random(-10, 10)))
 
 		CharacterManager.ActiveCharacters[player].Instances[i] = model
-
-		-- Setup Task Queue for this NPC
 		CharacterManager.setupTaskQueue(model)
 	end
 
-	-- Set initial control
-	CharacterManager.switchCharacter(player, 1)
+	-- Give StarterPack items manually since CharacterAutoLoads is false
+	local starterPack = game:GetService("StarterPack")
+	for _, item in ipairs(starterPack:GetChildren()) do
+		item:Clone().Parent = player.Backpack
+	end
+
+	task.defer(function()
+		CharacterManager.switchCharacter(player, 1)
+	end)
 end
 
 function CharacterManager.switchCharacter(player, index)
@@ -57,35 +69,36 @@ function CharacterManager.switchCharacter(player, index)
 	data.CurrentIndex = index
 	local targetModel = data.Instances[index]
 
-	-- Point player to this character
 	player.Character = targetModel
-
-	-- RemoteEvent would be used here to tell client to update camera
-	local remote = game:GetService("ReplicatedStorage"):FindFirstChild("SwitchCharacterCamera")
-	if remote then
-		remote:FireClient(player, targetModel)
+	if targetModel.PrimaryPart then
+		pcall(function() targetModel.PrimaryPart:SetNetworkOwner(player) end)
 	end
+
+	local remote = ReplicatedStorage:FindFirstChild("SwitchCharacterCamera")
+	if remote then remote:FireClient(player, targetModel) end
 end
 
 function CharacterManager.setupTaskQueue(model)
-	local queue = {}
-	model:SetAttribute("TaskQueue", "")
+	CharacterManager.Queues[model] = {}
 
 	task.spawn(function()
-		while model.Parent do
-			if #queue > 0 then
+		while model and model.Parent do
+			local queue = CharacterManager.Queues[model]
+			if queue and #queue > 0 then
 				local taskItem = table.remove(queue, 1)
 				CharacterManager.executeTask(model, taskItem)
 			else
-				-- IDLE Animation or behavior
 				task.wait(1)
 			end
 		end
+		CharacterManager.Queues[model] = nil
 	end)
+end
 
-	model.Destroying:Connect(function()
-		-- cleanup
-	end)
+function CharacterManager.addTask(model, taskItem)
+	if CharacterManager.Queues[model] then
+		table.insert(CharacterManager.Queues[model], taskItem)
+	end
 end
 
 function CharacterManager.executeTask(model, taskItem)
@@ -96,8 +109,8 @@ function CharacterManager.executeTask(model, taskItem)
 			hum.MoveToFinished:Wait()
 		end
 	elseif taskItem.type == "interact" then
-		-- Logic for interacting with objects
-		task.wait(2)
+		-- Placeholder for interaction logic (sit, use equipment, etc.)
+		task.wait(taskItem.duration or 2)
 	end
 end
 

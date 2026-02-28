@@ -1,0 +1,9 @@
+{
+	"className": "Part",
+	"properties": {
+		"Name": "Handle",
+		"Size": [0.5, 0.8, 0.1],
+		"Color": [30, 30, 30],
+		"Transparency": 0
+	}
+}
