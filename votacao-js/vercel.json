@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "public/**", "use": "@vercel/static" },
+    { "src": "src/**", "use": "@vercel/static" }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
+}
