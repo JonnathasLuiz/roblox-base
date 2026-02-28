@@ -1,0 +1,40 @@
+{
+  "name": "voting-game-core",
+  "version": "1.0.0",
+  "description": "Core logic for a multi-level voting system",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./domain": "./src/domain.js",
+    "./persistence": "./src/persistence.js",
+    "./service": "./src/service.js",
+    "./state": "./src/state.js"
+  },
+  "scripts": {
+    "start": "npx serve .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JonnathasLuiz/socia-game.git"
+  },
+  "keywords": [
+    "voting",
+    "governance",
+    "localstorage",
+    "vanilla-js"
+  ],
+  "author": "",
+  "license": "ISC",
+  "files": [
+    "src",
+    "public",
+    "index.html",
+    "vercel.json",
+    "README.md"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "serve": "^14.2.4"
+  }
+}
