@@ -1,0 +1,7 @@
+{
+	"className": "Tool",
+	"properties": {
+		"Name": "Smartphone",
+		"RequiresHandle": true
+	}
+}
